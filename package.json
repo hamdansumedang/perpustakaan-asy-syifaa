@@ -1,0 +1,52 @@
+{
+  "name": "asy-syifaa-frontend",
+  "version": "1.0.0",
+  "description": "Frontend PWA untuk Perpustakaan Digital Asy-Syifaa Wal Mahmuudiyyah",
+  "private": true,
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.14.0",
+    "axios": "^1.4.0",
+    "zustand": "^4.3.9",
+    "react-pdf": "^7.3.0",
+    "pdfjs-dist": "^3.11.174",
+    "lucide-react": "^0.263.1",
+    "react-hot-toast": "^2.4.0",
+    "react-lazy-load-image-component": "^1.11.0",
+    "date-fns": "^2.30.0",
+    "classnames": "^2.3.2",
+    "react-intersection-observer": "^9.5.1",
+    "workbox-window": "^7.0.0"
+  },
+  "devDependencies": {
+    "react-scripts": "5.0.1",
+    "@tailwindcss/forms": "^0.5.3",
+    "tailwindcss": "^3.3.0",
+    "postcss": "^8.4.24",
+    "autoprefixer": "^10.4.14"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "production": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
