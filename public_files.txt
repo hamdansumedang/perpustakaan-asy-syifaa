@@ -1,0 +1,275 @@
+// frontend/public/manifest.json
+{
+  "name": "Asy-Syifaa Wal Mahmuudiyyah - Perpustakaan Digital Islam",
+  "short_name": "Asy-Syifaa",
+  "description": "Perpustakaan Digital Islam dengan koleksi Tafsir, Hadits, Fiqih, dan Aqidah",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#10b981",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/images/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/icon-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Cari File",
+      "short_name": "Cari",
+      "description": "Cari file di perpustakaan",
+      "url": "/?tab=search",
+      "icons": [
+        {
+          "src": "/images/search-icon.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Bookmark Saya",
+      "short_name": "Bookmark",
+      "description": "Lihat bookmark saya",
+      "url": "/?tab=bookmarks",
+      "icons": [
+        {
+          "src": "/images/bookmark-icon.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/images/screenshot1.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "categories": ["education", "reference"],
+  "prefer_related_applications": false
+}
+
+---
+
+// frontend/public/service-worker.js
+const CACHE_NAME = 'asy-syifaa-v1';
+const urlsToCache = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/images/icon-192x192.png'
+];
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.addAll(urlsToCache);
+    })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', event => {
+  if (event.request.url.includes('/api/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, clone);
+          });
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+  } else {
+    event.respondWith(
+      caches.match(event.request).then(response => {
+        return response || fetch(event.request);
+      })
+    );
+  }
+});
+
+self.addEventListener('push', event => {
+  const data = event.data.json();
+  const options = {
+    body: data.body,
+    icon: '/images/icon-192x192.png',
+    badge: '/images/icon-192x192.png'
+  };
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+---
+
+// frontend/public/index.html
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Perpustakaan Digital Islam dengan koleksi Tafsir, Hadits, Fiqih, dan Aqidah">
+  <meta name="theme-color" content="#10b981">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Asy-Syifaa">
+  
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/images/favicon.ico">
+  <link rel="apple-touch-icon" href="/images/icon-192x192.png">
+  
+  <title>Asy-Syifaa - Perpustakaan Digital Islam</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Roboto', sans-serif; 
+      background: #f8fafc; 
+      color: #1e293b;
+    }
+    #root { min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js')
+        .then(reg => console.log('Service Worker registered'))
+        .catch(err => console.log('Service Worker registration failed'));
+    }
+  </script>
+  <script src="./index.js"></script>
+</body>
+</html>
+
+---
+
+// backend/Dockerfile
+FROM node:16-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+RUN mkdir -p uploads
+EXPOSE 5000
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:5000/api/categories', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+CMD ["node", "server.js"]
+
+---
+
+// frontend/Dockerfile
+FROM node:16-alpine as builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM nginx:alpine
+RUN rm /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY --from=builder /app/build /usr/share/nginx/html
+EXPOSE 80
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
+CMD ["nginx", "-g", "daemon off;"]
+
+---
+
+// frontend/nginx.conf
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log warn;
+pid /var/run/nginx.pid;
+
+events { worker_connections 1024; }
+
+http {
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+  
+  log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                  '$status $body_bytes_sent "$http_referer"';
+  access_log /var/log/nginx/access.log main;
+  
+  sendfile on;
+  tcp_nopush on;
+  tcp_nodelay on;
+  keepalive_timeout 65;
+  types_hash_max_size 2048;
+  client_max_body_size 100M;
+  
+  gzip on;
+  gzip_vary on;
+  gzip_min_length 1024;
+  gzip_types text/plain text/css text/javascript application/json application/javascript;
+  
+  upstream backend {
+    server backend:5000;
+  }
+  
+  server {
+    listen 80;
+    root /usr/share/nginx/html;
+    index index.html;
+    
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf)$ {
+      expires 30d;
+      add_header Cache-Control "public, immutable";
+    }
+    
+    location /api/ {
+      proxy_pass http://backend;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+    
+    location / {
+      try_files $uri $uri/ /index.html;
+    }
+  }
+}
